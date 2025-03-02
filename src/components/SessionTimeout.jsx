@@ -1,43 +1,41 @@
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 
 const SessionTimeout = () => {
   const navigate = useNavigate();
-  const SESSION_TIMEOUT = 3 * 60 * 1000; // 3 minutes (180,000ms)
+  const SESSION_TIMEOUT = 2 * 60 * 1000; // 2 minutes
+  const timeoutRef = useRef(null);
 
-  useEffect(() => {
-    let timeout;
-
-    const resetTimer = () => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => {
-        handleLogout();
-      }, SESSION_TIMEOUT);
-    };
-
-    const handleUserActivity = () => {
-      resetTimer();
-    };
-
-    if (localStorage.getItem("authToken")) {
-      resetTimer();
-      window.addEventListener("mousemove", handleUserActivity);
-      window.addEventListener("keydown", handleUserActivity);
-    }
-
-    return () => {
-      clearTimeout(timeout);
-      window.removeEventListener("mousemove", handleUserActivity);
-      window.removeEventListener("keydown", handleUserActivity);
-    };
-  }, []);
-
-  const handleLogout = () => {
+  // Logout function
+  const handleLogout = useCallback(() => {
     alert("Session expired due to inactivity!");
     localStorage.removeItem("authToken");
     localStorage.removeItem("userEmail");
     navigate("/Loginpage");
-  };
+  }, [navigate]);
+
+  // Reset session timer
+  const resetTimer = useCallback(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(handleLogout, SESSION_TIMEOUT);
+  }, [handleLogout]);
+
+  useEffect(() => {
+    // Attach event listeners
+    window.addEventListener("mousemove", resetTimer);
+    window.addEventListener("keydown", resetTimer);
+
+    // If user is authenticated, start session timer
+    if (localStorage.getItem("authToken")) {
+      resetTimer();
+    }
+
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      window.removeEventListener("mousemove", resetTimer);
+      window.removeEventListener("keydown", resetTimer);
+    };
+  }, [resetTimer]);
 
   return null;
 };
